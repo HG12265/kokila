@@ -1,0 +1,83 @@
+
+#include <WiFi.h>
+#include <WebServer.h>
+
+#define IR_PIN 27
+
+const char* ssid = "ESP32_IR";
+const char* password = "12345678";
+
+WebServer server(80);
+
+void home() {
+  String page = R"rawliteral(
+  <html>
+  <head>
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1">
+  </head>
+  <body style="text-align:center;font-family:Arial;padding:30px">
+    <h2>ESP32 IR Object Detection</h2>
+    <h3 id="status">Checking...</h3>
+
+    <script>
+      async function checkSensor() {
+        try {
+          const response = await fetch('/status');
+          const data = await response.json();
+          document.getElementById('status').innerText =
+            data.detected ? 'OBJECT DETECTED' : 'NO OBJECT';
+        } catch (e) {
+          document.getElementById('status').innerText =
+            'Connection Error';
+        }
+      }
+      setInterval(checkSensor, 500);
+      checkSensor();
+    </script>
+  </body>
+  </html>
+  )rawliteral";
+
+  server.send(200, "text/html", page);
+}
+
+void setup() {
+  Serial.begin(115200);
+  pinMode(IR_PIN, INPUT);
+
+  WiFi.mode(WIFI_AP);
+  WiFi.softAP(ssid, password);
+
+  server.on("/", home);
+
+  server.on("/status", []() {
+    bool detected = (digitalRead(IR_PIN) == LOW);
+    String json = String("{\"detected\":") +
+                  (detected ? "true" : "false") + "}";
+    server.send(200, "application/json", json);
+  });
+
+  server.begin();
+
+  Serial.println("IR Sensor Server Started");
+  Serial.println(WiFi.softAPIP());
+}
+
+void loop() {
+  server.handleClient();
+
+  static int lastState = -1;
+  int state = digitalRead(IR_PIN);
+
+  if (state != lastState) {
+    if (state == LOW) {
+      Serial.println("Object Detected!");
+    } else {
+      Serial.println("No Object");
+    }
+    lastState = state;
+  }
+
+  delay(20);
+}
