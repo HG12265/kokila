@@ -1,0 +1,61 @@
+
+#include <WiFi.h>
+#include <WebServer.h>
+
+#define LED_PIN 2
+
+const char* ssid = "ESP32_LED";
+const char* password = "12345678";
+
+WebServer server(80);
+bool ledState = false;
+
+void home() {
+  String page = "<html><head>";
+  page += "<meta name='viewport' content='width=device-width,initial-scale=1'>";
+  page += "</head><body style='text-align:center;font-family:Arial;padding:30px'>";
+
+  page += "<h2>ESP32 LED Control</h2>";
+  page += "<h3>LED: ";
+  page += ledState ? "ON" : "OFF";
+  page += "</h3>";
+
+  page += "<a href='/on'><button style='background:green;color:white;padding:15px 30px'>LED ON</button></a>";
+  page += "<br><br>";
+  page += "<a href='/off'><button style='background:red;color:white;padding:15px 30px'>LED OFF</button></a>";
+
+  page += "</body></html>";
+  server.send(200, "text/html", page);
+}
+
+void setup() {
+  Serial.begin(115200);
+  pinMode(LED_PIN, OUTPUT);
+  digitalWrite(LED_PIN, LOW);
+
+  WiFi.mode(WIFI_AP);
+  WiFi.softAP(ssid, password);
+
+  server.on("/", home);
+
+  server.on("/on", []() {
+    ledState = true;
+    digitalWrite(LED_PIN, HIGH);
+    home();
+  });
+
+  server.on("/off", []() {
+    ledState = false;
+    digitalWrite(LED_PIN, LOW);
+    home();
+  });
+
+  server.begin();
+
+  Serial.println("ESP32 Server Started");
+  Serial.println(WiFi.softAPIP());
+}
+
+void loop() {
+  server.handleClient();
+}
